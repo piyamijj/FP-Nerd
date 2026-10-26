@@ -11,13 +11,14 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattServer;
 import android.bluetooth.BluetoothGattServerCallback;
 import android.bluetooth.BluetoothGattService;
-import android.bluetooth.BluetoothLeAdvertiser;
-import android.bluetooth.BluetoothLeScanner;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothStatusCodes;
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseData;
 import android.bluetooth.le.AdvertiseSettings;
+import android.bluetooth.le.BluetoothLeAdvertiser;
+import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
@@ -392,7 +393,7 @@ public class BleTavlaPlugin extends Plugin {
         sending = true;
         boolean ok;
         if (Build.VERSION.SDK_INT >= 33) {
-            ok = server.notifyCharacteristicChanged(peer, txChar, false, chunk);
+            ok = server.notifyCharacteristicChanged(peer, txChar, false, chunk) == BluetoothStatusCodes.SUCCESS;
         } else {
             txChar.setValue(chunk);
             ok = server.notifyCharacteristicChanged(peer, txChar, false);

@@ -3,11 +3,15 @@
 Ahşap tahtası, iri taşları ve akıcı animasyonlarıyla modern bir tavla oyunu.
 Tarayıcıda (PWA) ve Android APK olarak çalışır.
 
+- **Web:** https://fp-nerd.vercel.app
+- **Android APK:** https://github.com/piyamijj/FP-Nerd/releases/latest
+
 ## Özellikler
 
 - **Bilgisayara karşı** — Kolay / Normal / Zor seviyeler (2 katmanlı beklenen değer araması)
 - **İki kişilik** — aynı cihazda sırayla
 - **Online** — oda kodu ve davet linkiyle, WebRTC (PeerJS) üzerinden
+- **Bluetooth** — APK'da internet olmadan iki telefon arasında (native BLE GATT, deneysel)
 - **Yatay tam ekran** — telefonda yan çevirince tahta ekranı doldurur
 - **Gerçek tavla kuralları** — kapalı hane, kırık taş, kep atışı, iki zar zorunluluğu, dans
 - **Mars / mars-üstü** puanlaması (1 / 2 / 3), maç skoru
@@ -26,7 +30,7 @@ npm run build
 ## Yayın
 
 - **Web:** Vercel (`vercel.json` hazır, statik Vite çıktısı)
-- **Android:** GitHub Actions, her `v*` etiketinde APK üretip Release'e ekler.
+- **Android:** GitHub Actions, `main` dalına yapılan her itmede APK üretip Release'e ekler.
 
 ## Kurallar ve puanlama
 

@@ -149,6 +149,14 @@ export function Menu({
                 {installLabel}
               </button>
             )}
+            <a
+              className="link-btn"
+              href="https://github.com/piyamijj/FP-Nerd/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+            >
+              APK indir
+            </a>
             <a className="link-btn" href="https://github.com/piyamijj/FP-Nerd" target="_blank" rel="noreferrer">
               GitHub
             </a>
