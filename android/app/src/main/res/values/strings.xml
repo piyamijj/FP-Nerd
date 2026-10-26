@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FP-Nerd Tavla</string>
+    <string name="title_activity_main">FP-Nerd Tavla</string>
+    <string name="package_name">com.fpnerd.tavla</string>
+    <string name="custom_url_scheme">com.fpnerd.tavla</string>
+</resources>

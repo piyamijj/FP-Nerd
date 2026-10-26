@@ -1,0 +1,110 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'android/**'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'index.html'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: APK derle ve yayınla
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Bağımlılıklar
+        run: npm ci
+
+      - name: Web build
+        run: npm run build
+
+      - name: Capacitor senkronizasyonu
+        run: npx cap sync android
+
+      # İmza anahtarı her derlemede aynı olsun diye önbellekte tutulur.
+      # Böylece yeni APK, eskisinin üzerine kurulabilir.
+      - name: Debug keystore önbelleği
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: fp-nerd-debug-keystore-v1
+
+      - name: Keystore oluştur
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore ~/.android/debug.keystore \
+              -storepass android -keypass android \
+              -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=FP-Nerd Tavla, OU=FP-Nerd, O=FP-Nerd, L=Istanbul, C=TR"
+          fi
+
+      - name: Gradle derlemesi
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: APK hazırla
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk "out/FP-Nerd-Tavla.apk"
+          ls -lh out
+
+      - name: Artefakt
+        uses: actions/upload-artifact@v4
+        with:
+          name: FP-Nerd-Tavla-apk
+          path: out/FP-Nerd-Tavla.apk
+          if-no-files-found: error
+
+      - name: Sürüm etiketi
+        id: version
+        run: echo "tag=v1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: FP-Nerd Tavla ${{ steps.version.outputs.tag }}
+          body: |
+            **FP-Nerd Tavla** — online, Bluetooth ve yapay zekâya karşı oynanan tavla.
+
+            - Android 5.0 (API 22) ve üzeri
+            - Yatay tam ekran
+            - Web sürümü: https://fp-nerd.vercel.app
+
+            Kurulum: APK'yı indir, "bilinmeyen kaynaklara izin ver" seçeneğini aç ve yükle.
+          files: out/FP-Nerd-Tavla.apk
+          fail_on_unmatched_files: true
