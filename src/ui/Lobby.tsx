@@ -16,6 +16,10 @@ interface LobbyProps {
   onBack: () => void;
   onCopy: () => void;
   onEmote?: (e: string) => void;
+  netKind: 'online' | 'ble';
+  bleAvailable: boolean;
+  onNetKind: (kind: 'online' | 'ble') => void;
+  onSwitchMode: (mode: 'host' | 'join') => void;
 }
 
 export function Lobby({
@@ -31,8 +35,13 @@ export function Lobby({
   onStart,
   onBack,
   onCopy,
+  netKind,
+  bleAvailable,
+  onNetKind,
+  onSwitchMode,
 }: LobbyProps) {
   const [copied, setCopied] = useState(false);
+  const ble = netKind === 'ble';
 
   const copy = () => {
     onCopy();
@@ -47,8 +56,31 @@ export function Lobby({
       </button>
 
       <div className="lobby-card">
-        <span className="card-kicker">Bekleme salonu</span>
-        <h2>{mode === 'host' ? 'Oda Kur' : 'Odaya Katıl'}</h2>
+        <div className="net-switch" role="tablist" aria-label="bağlantı türü">
+          <button
+            role="tab"
+            aria-selected={!ble}
+            className={`net-tab${!ble ? ' active' : ''}`}
+            onClick={() => onNetKind('online')}
+          >
+            🌐 İnternet
+          </button>
+          <button
+            role="tab"
+            aria-selected={ble}
+            className={`net-tab${ble ? ' active' : ''}`}
+            onClick={() => {
+              if (bleAvailable) onNetKind('ble');
+            }}
+            disabled={!bleAvailable}
+            title={bleAvailable ? 'İnternet gerekmez' : 'Bluetooth yalnızca Android uygulamasında çalışır'}
+          >
+            📶 Bluetooth
+          </button>
+        </div>
+
+        <span className="card-kicker">{ble ? 'Yakın oyun · internet yok' : 'Bekleme salonu'}</span>
+        <h2>{mode === 'host' ? (ble ? 'Bluetooth Odası' : 'Oda Kur') : 'Odaya Katıl'}</h2>
 
         {mode === 'host' ? (
           <>
@@ -59,7 +91,7 @@ export function Lobby({
                     <span key={i}>{c}</span>
                   ))}
                 </div>
-                <button className="ghost-btn small copy-btn" onClick={copy}>
+                <button className="ghost-btn small copy-btn" onClick={copy} hidden={ble}>
                   {copied ? '✓ Kopyalandı' : 'Davet linkini kopyala'}
                 </button>
 
@@ -79,7 +111,9 @@ export function Lobby({
                   Oyunu Başlat
                 </button>
                 <p className="hint">
-                  İpucu: linki gönderdiğin kişi oyunu açtığında oda otomatik dolar. Kodu elle de girebilir.
+                  {ble
+                    ? 'Diğer telefon da Bluetooth sekmesinden bu kodu girsin. İki cihazı yakın tut; internet gerekmez.'
+                    : 'İpucu: linki gönderdiğin kişi oyunu açtığında oda otomatik dolar. Kodu elle de girebilir.'}
                 </p>
               </>
             ) : (
@@ -104,7 +138,7 @@ export function Lobby({
               spellCheck={false}
             />
             <button className="primary-btn" onClick={onJoin} disabled={joinCode.length < 4 || state === 'joining'}>
-              {state === 'joining' ? 'Bağlanıyor…' : 'Katıl'}
+              {state === 'joining' ? 'Bağlanıyor…' : ble ? 'Bluetooth ile bağlan' : 'Katıl'}
             </button>
             <div className={`lobby-status ${state === 'error' ? 'err' : 'wait'}`}>
               <span className="dot pulse" /> {error ?? status}
@@ -113,15 +147,29 @@ export function Lobby({
         )}
 
         {error && mode === 'host' && <div className="lobby-status err">{error}</div>}
+
+        <button className="mode-switch" onClick={() => onSwitchMode(mode === 'host' ? 'join' : 'host')}>
+          {mode === 'host' ? 'Odaya katılacak mısın? Koda katıl ›' : 'Oda mı kuracaksın? Oda kur ›'}
+        </button>
       </div>
 
       <div className="lobby-side">
         <div className="lobby-tip">
           <b>Nasıl oynanır?</b>
           <ol>
-            <li>Odayı kur, 4 harflik kodu paylaş.</li>
-            <li>Rakip kodu girip salona gelir.</li>
-            <li>“Oyunu Başlat”a bas, zar senin olsun.</li>
+            {ble ? (
+              <>
+                <li>İki telefonda da Bluetooth’u aç.</li>
+                <li>Oda kur, 4 harflik kodu diğer telefona gir.</li>
+                <li>“Oyunu Başlat”a bas, internet olmadan oynayın.</li>
+              </>
+            ) : (
+              <>
+                <li>Odayı kur, 4 harflik kodu paylaş.</li>
+                <li>Rakip kodu girip salona gelir.</li>
+                <li>“Oyunu Başlat”a bas, zar senin olsun.</li>
+              </>
+            )}
           </ol>
         </div>
       </div>

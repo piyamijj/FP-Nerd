@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { legalFirstMoves, makeRng, pipCount, type GameState, type Move, type Player } from './game/engine';
 import { LEVEL_LABEL, chooseSequence, type Level } from './game/ai';
 import { newGame, nextGame, playMove, startRoll } from './game/state';
-import { PeerGuest, PeerHost, createRoomCode, type Action, type NetMsg } from './net/peer';
+import { PeerGuest, PeerHost, createRoomCode, type Action, type NetMsg, type Transport } from './net/peer';
+import { BleGuest, BleHost, bleSupported } from './net/ble';
 import { Board, type LastMove } from './ui/Board';
 import { Menu } from './ui/Menu';
 import { Lobby, type LobbyState } from './ui/Lobby';
@@ -14,6 +15,7 @@ import { loadSettings, saveSettings, type Settings } from './settings';
 
 type Screen = 'menu' | 'game' | 'lobby';
 type Mode = 'ai' | 'local' | 'online';
+type NetKind = 'online' | 'ble';
 
 interface Session {
   mode: Mode;
@@ -47,14 +49,15 @@ export default function App() {
   const [joinCode, setJoinCode] = useState('');
   const [lobbyError, setLobbyError] = useState<string | null>(null);
   const [guestName, setGuestName] = useState<string | null>(null);
+  const [netKind, setNetKind] = useState<NetKind>('online');
 
   const { ref: stageRef, scale } = useStageFit();
   useWakeLock();
 
   const gameRef = useRef(game);
   const sessionRef = useRef<Session | null>(null);
-  const hostRef = useRef<PeerHost | null>(null);
-  const guestRef = useRef<PeerGuest | null>(null);
+  const hostRef = useRef<Transport | null>(null);
+  const guestRef = useRef<Transport | null>(null);
   const moveSeq = useRef(0);
   const aiPlan = useRef<{ key: string; moves: Move[] } | null>(null);
   const rng = useRef(makeRng(Date.now() & 0x7fffffff));
@@ -200,13 +203,13 @@ export default function App() {
   );
 
   const hostRoom = useCallback(
-    (attempt = 0) => {
+    (kind: NetKind, attempt = 0) => {
       const code = createRoomCode();
       setRoomCode(code);
       setLobbyState('hosting');
       setLobbyError(null);
       setGuestName(null);
-      const host = new PeerHost(code);
+      const host: Transport = kind === 'ble' ? new BleHost(code) : new PeerHost(code);
       hostRef.current = host;
       host.onReady = () => setLobbyState('hosting');
       host.onOpen = () => {
@@ -227,9 +230,9 @@ export default function App() {
         }
       };
       host.onError = (message, fatal) => {
-        if (fatal && attempt < 1) {
+        if (fatal && attempt < 1 && kind === 'online') {
           host.close();
-          hostRoom(attempt + 1);
+          hostRoom(kind, attempt + 1);
           return;
         }
         setLobbyError(message);
@@ -244,17 +247,21 @@ export default function App() {
     [commit, flash, hostIntent],
   );
 
-  const openHostLobby = useCallback(() => {
-    cleanupNet();
-    setLobbyMode('host');
-    setScreen('lobby');
-    setGuestName(null);
-    setLobbyError(null);
-    hostRoom();
-  }, [cleanupNet, hostRoom]);
+  const openHostLobby = useCallback(
+    (kind: NetKind = 'online') => {
+      cleanupNet();
+      setNetKind(kind);
+      setLobbyMode('host');
+      setScreen('lobby');
+      setGuestName(null);
+      setLobbyError(null);
+      hostRoom(kind);
+    },
+    [cleanupNet, hostRoom],
+  );
 
   const joinRoom = useCallback(
-    (rawCode: string) => {
+    (rawCode: string, kind: NetKind) => {
       const code = rawCode.trim().toUpperCase();
       if (code.length !== 4) {
         setLobbyError('Oda kodu 4 karakter olmalı.');
@@ -262,13 +269,14 @@ export default function App() {
         return;
       }
       cleanupNet();
+      setNetKind(kind);
       setLobbyMode('join');
       setScreen('lobby');
       setLobbyState('joining');
       setLobbyError(null);
       setJoinCode(code);
 
-      const guest = new PeerGuest(code);
+      const guest: Transport = kind === 'ble' ? new BleGuest(code) : new PeerGuest(code);
       guestRef.current = guest;
       guest.onOpen = () => {
         guest.send({ t: 'hello', name: netName });
@@ -337,13 +345,44 @@ export default function App() {
     });
   }, [enterGame, guestName, netName, roomCode]);
 
+  const changeNetKind = useCallback(
+    (kind: NetKind) => {
+      if (kind === netKind) return;
+      cleanupNet();
+      setNetKind(kind);
+      setGuestName(null);
+      setLobbyError(null);
+      setLobbyState('idle');
+      if (lobbyMode === 'host') hostRoom(kind);
+    },
+    [cleanupNet, hostRoom, lobbyMode, netKind],
+  );
+
+  const changeLobbyMode = useCallback(
+    (mode: 'host' | 'join') => {
+      if (mode === lobbyMode) return;
+      cleanupNet();
+      setGuestName(null);
+      setLobbyError(null);
+      setLobbyState('idle');
+      setLobbyMode(mode);
+      if (mode === 'host') {
+        hostRoom(netKind);
+      } else {
+        setRoomCode('');
+        setJoinCode('');
+      }
+    },
+    [cleanupNet, hostRoom, lobbyMode, netKind],
+  );
+
   /* davet linki ile gelen misafir */
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('oda');
     if (code && /^[A-Za-z0-9]{4}$/.test(code)) {
       setJoinCode(code.toUpperCase());
-      const t = window.setTimeout(() => joinRoom(code), 350);
+      const t = window.setTimeout(() => joinRoom(code, 'online'), 350);
       return () => window.clearTimeout(t);
     }
     return undefined;
@@ -542,16 +581,20 @@ export default function App() {
           update={update}
           onStartAI={startVsAI}
           onStartLocal={startLocal}
-          onHost={openHostLobby}
+          onHost={() => openHostLobby('online')}
           onJoin={() => {
             cleanupNet();
+            setNetKind('online');
             setLobbyMode('join');
             setLobbyState('idle');
             setLobbyError(null);
             setJoinCode('');
             setScreen('lobby');
           }}
-          onBluetooth={() => setBleInfo(true)}
+          onBluetooth={() => {
+            if (bleSupported()) openHostLobby('ble');
+            else setBleInfo(true);
+          }}
           onFullscreen={() => void goFullscreen()}
           canInstall={false}
           installLabel="Uygulamayı yükle"
@@ -568,10 +611,14 @@ export default function App() {
           status={lobbyState === 'joining' ? 'Odaya bağlanılıyor…' : 'Oda hazır'}
           error={lobbyError}
           guestName={guestName}
-          onJoin={() => joinRoom(joinCode)}
+          onJoin={() => joinRoom(joinCode, netKind)}
           onStart={startOnlineGame}
           onBack={closeLobby}
           onCopy={copyInvite}
+          netKind={netKind}
+          bleAvailable={bleSupported()}
+          onNetKind={changeNetKind}
+          onSwitchMode={changeLobbyMode}
         />
       )}
 

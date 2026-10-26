@@ -1079,6 +1079,57 @@ h3 {
   align-self: center;
 }
 
+.net-switch {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 13px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+}
+
+.net-tab {
+  flex: 1;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.net-tab.active {
+  background: linear-gradient(180deg, #f0d9a4, #c9a45f);
+  color: #251507;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.net-tab:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mode-switch {
+  align-self: center;
+  margin-top: 2px;
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: #d9b877;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.mode-switch:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
 .lobby-status {
   display: flex;
   align-items: center;
